@@ -1,0 +1,18 @@
+syntax = "proto3";
+package rpc;
+
+message MessageLen {
+    int32 magic = 1;
+    int32 length = 2;
+}
+
+message NodeMessage {
+    bytes data = 1;
+    int32 nodeId = 2;
+    int32 qId = 3;
+}
+
+message InitMessage {
+    int32 magic = 1;
+    int32 nodeId = 2;
+}
