@@ -1,4 +1,5 @@
 bin/*
+test.log
 
 # Binaries for programs and plugins
 *.exe

@@ -3,8 +3,8 @@ package network
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
+	"raft/internal/lo"
 	"raft/pkg/rpc"
 	"reflect"
 )
@@ -16,7 +16,7 @@ func (n *Network) acceptor(lr net.Listener, ctx context.Context) {
 			lr.Close()
 			return
 		default:
-			fmt.Println("Node", n.NodeId, "| Ready to Accept")
+			lo.NetInfo(n.NodeId, "Ready to Accept")
 			conn, err := lr.Accept()
 			if err != nil {
 				continue
@@ -25,23 +25,23 @@ func (n *Network) acceptor(lr net.Listener, ctx context.Context) {
 			b_len, err := conn.Read(b)
 
 			if err != nil {
-				fmt.Println("Node", n.NodeId, "|", err.Error())
+				lo.NetWarn(n.NodeId, err.Error())
 				conn.Close()
 				continue
 			}
 			initData := rpc.InitMessage{}
 			err = initData.Unmarshal(b[:b_len])
 			if err != nil {
-				fmt.Println("Node", n.NodeId, "|", err.Error(), "Len:", b_len, "Data:", b[:b_len])
+				lo.NetWarn(n.NodeId, err.Error(), "Len:", b_len, "Data:", b[:b_len])
 				conn.Close()
 				continue
 			}
-			fmt.Println("Node", n.NodeId, "|", "ConnData:", initData)
+			lo.NetInfo(n.NodeId, "ConnData:", initData)
 			n.newConn <- ConnInit{
 				NodeId: initData.NodeId,
 				Conn:   conn,
 			}
-			fmt.Println("Node", n.NodeId, "| Connected to", initData.NodeId)
+			lo.NetInfo(n.NodeId, "Connected to", initData.NodeId)
 		}
 	}
 }
@@ -78,7 +78,7 @@ func (n *Network) receiver(ctx context.Context) {
 			}
 
 			msg := val.Interface().(rpc.NodeMessage)
-			fmt.Println("Node", n.NodeId, "| Receiving message from", msg.NodeId, "for QId", msg.QId)
+			lo.NetInfo(n.NodeId, "Receiving message from", msg.NodeId, "for QId", msg.QId)
 			ch, ok := n.Queues[msg.QId]
 			if !ok {
 				continue
@@ -94,30 +94,17 @@ func (n *Network) reader(conn net.Conn, sender chan rpc.NodeMessage, ctx context
 		case <-ctx.Done():
 			return
 		default:
-			// b := make([]byte, 20)
-			// b_len, err := conn.Read(b)
-			// if err != nil {
-			// 	fmt.Println("Node", n.NodeId, "|", err.Error())
-			// 	continue
-			// }
-
-			// lenData := rpc.MessageLen{}
-			// err = lenData.Unmarshal(b[:b_len])
-			// if err != nil {
-			// 	fmt.Println("Node", n.NodeId, "| Data:", b[:b_len], "Length:", b_len, "Error:", err.Error())
-			// 	continue
-			// }
 			dataBytes := make([]byte, MAX_MSGLEN)
 			b_len, err := conn.Read(dataBytes)
 			if err != nil {
-				fmt.Println("Node", n.NodeId, "|", err.Error())
+				lo.NetWarn(n.NodeId, err.Error())
 				continue
 			}
 
 			msg := rpc.NodeMessage{}
 			err = msg.Unmarshal(dataBytes[:b_len])
 			if err != nil {
-				fmt.Println("Node", n.NodeId, "|", err.Error())
+				lo.NetWarn(n.NodeId, err.Error())
 				continue
 			}
 
@@ -138,10 +125,10 @@ func (n *Network) Server(lr net.Listener, ctx context.Context) {
 		case <-ctx.Done():
 			endAcc()
 			endRecv()
-			fmt.Println("Node", n.NodeId, "| Server exiting")
+			lo.NetWarn(n.NodeId, "Server exiting")
 			return
 		case connData := <-n.newConn:
-			fmt.Println("Node", n.NodeId, "| Adding Reader for new Connection:", connData)
+			lo.NetInfo(n.NodeId, "Adding Reader for new Connection:", connData)
 			ch := make(chan rpc.NodeMessage)
 			ktx, _ := context.WithCancel(ctx)
 			go n.reader(connData.Conn, ch, ktx)

@@ -2,8 +2,8 @@ package network
 
 import (
 	"errors"
-	"fmt"
 	"net"
+	"raft/internal/lo"
 	"raft/pkg/rpc"
 )
 
@@ -20,7 +20,7 @@ func (n *Network) Connect(nodeId int32, addr string) (net.Conn, error) {
 
 	b, _ := me.Marshal()
 
-	fmt.Println("Node", n.NodeId, "| Sending Length:", len(b))
+	lo.NetInfo(n.NodeId, "Sending Length:", len(b))
 	conn.Write(b)
 
 	n.Peers[nodeId] = addr

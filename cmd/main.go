@@ -2,15 +2,21 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"raft/internal/lo"
 	"raft/pkg/network"
 	"sync"
 	"time"
 )
 
 func worker(n *network.Network, n_peers int) {
+	lo.LOG.AddSink(os.Stdout, 500)
+	file, _ := os.OpenFile("test.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	lo.LOG.AddSink(file, 0)
+
 	ch := make(network.Queue)
 	n.RegisterQueue(1, ch)
-	fmt.Println("Node", n.NodeId, "| ", "Starting operation in 1s")
+	lo.AppInfo(n.NodeId, "Starting operation in 1s")
 	time.Sleep(time.Second)
 
 	snd := 0
@@ -20,19 +26,19 @@ func worker(n *network.Network, n_peers int) {
 		select {
 		case data := <-ch:
 			rcv++
-			fmt.Println("Node", n.NodeId, "-> Node", data.NodeId, ": ", string(data.Data))
+			lo.AppInfo(n.NodeId, "<- Node", data.NodeId, ": ", string(data.Data))
 		default:
 			chk := time.Now()
 			n.Broadcast(1, []byte(fmt.Sprintf("Greetings from %d", n.NodeId)))
 			t := time.Since(chk)
 
-			fmt.Println("Node", n.NodeId, "| Msg Time:", t)
+			lo.AppInfo(n.NodeId, "Msg Time:", t)
 
 			snd++
 		}
 	}
 
-	fmt.Println("Node", n.NodeId, "| ", "Stopping operation in 2s")
+	lo.AppWarn(n.NodeId, "Stopping operation in 2s")
 	time.Sleep(2 * time.Second)
 
 }
@@ -45,7 +51,7 @@ func main() {
 		nets[i] = &network.Network{}
 		err := nets[i].Init(p, int32(i))
 		if err != nil {
-			fmt.Println(err.Error())
+			lo.AppError(int32(-1), err.Error())
 		}
 	}
 
@@ -56,7 +62,7 @@ func main() {
 			if i != j {
 				_, err := nets[i].Connect(int32(j), "127.0.0.1"+p2)
 				if err != nil {
-					fmt.Println(err.Error())
+					lo.AppError(int32(-1), err.Error())
 				}
 			}
 		}
