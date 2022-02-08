@@ -20,10 +20,9 @@ type RaftNode struct {
 	normalCh   network.Queue
 	electionCh network.Queue
 
-	State        int      // FOLLOWER, CANDIDATE, LEADER
-	Log          [][]byte // Consensus data: Currently all in RAM
-	Term         int      // Current Election Term
-	CommitLength int      // Length of Log committed
+	State int // FOLLOWER, CANDIDATE, LEADER
+	Term  int // Current Election Term
+	Log   LogType
 
 	electionMinTimeout time.Duration
 	electionMaxTimeout time.Duration
@@ -50,7 +49,7 @@ func (r *RaftNode) Init(
 	r.commitTimeout = cT
 
 	r.State = FOLLOWER
-	r.Log = make([][]byte, 0)
+	r.Log = LogType{}
+	r.Log.Init()
 	r.Term = 0
-	r.CommitLength = 0
 }
