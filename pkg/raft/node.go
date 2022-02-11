@@ -24,6 +24,10 @@ type RaftNode struct {
 	Term  int // Current Election Term
 	Log   LogType
 
+	CurrLeaderId  int32        // -1 for no leader
+	VotesReceived map[int]bool // set of votes received
+	VotedFor      int32        // -1 for not voted yet
+
 	electionMinTimeout time.Duration
 	electionMaxTimeout time.Duration
 	commitTimeout      time.Duration
@@ -52,4 +56,33 @@ func (r *RaftNode) Init(
 	r.Log = LogType{}
 	r.Log.Init()
 	r.Term = 0
+
+	r.CurrLeaderId = -1 // no leader now
+	r.VotedFor = r.nId
+	r.VotesReceived = make(map[int]bool)
+}
+
+// function a node calls after a node receives VoteRequestMsg
+func (n *RaftNode) Handle_VoteRequest(m VoteRequestMsg) {
+	if m.CandidateTerm > n.Term {
+		n.Term = m.CandidateTerm
+		n.State = FOLLOWER
+		n.VotedFor = -1
+	}
+
+	lastTerm := 0
+	if n.Log.Length > 0 {
+		lastTerm = n.Log.LastTerm
+	}
+
+	// if requester log is okay to vote for
+	logOk := (m.CandidateLogTerm > lastTerm) || ((m.CandidateTerm == lastTerm) && (m.CandidateLogLen > n.Log.Length))
+
+	if (m.CandidateTerm == n.Term) && logOk && (n.VotedFor == m.CandidateId || n.VotedFor == -1) {
+		n.VotedFor = m.CandidateId
+		// TODO :: send VoteResponse with true granted
+	} //else {
+	// TODO :: send VoteResponse with false granted
+	//}
+
 }

@@ -9,6 +9,7 @@ type LogEntry struct {
 type LogType struct {
 	Head         *LogEntry
 	Length       int
+	LastTerm     int // term of last entry of Log
 	CommitLength int
 }
 
@@ -16,6 +17,7 @@ func (l *LogType) Init() {
 	l.Head = nil
 	l.Length = 0
 	l.CommitLength = 0
+	l.LastTerm = 0
 }
 
 func (l *LogType) Append(e *LogEntry) {
@@ -31,4 +33,7 @@ func (l *LogType) Append(e *LogEntry) {
 	}
 	temp.Next = e
 	l.Length++
+	if e.Term > l.LastTerm {
+		l.LastTerm = e.Term
+	}
 }
