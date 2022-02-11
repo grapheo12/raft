@@ -1,37 +1,25 @@
 package raft
 
-type LogEntry struct {
-	Msg  []byte
-	Term int
-	Next *LogEntry
-}
+import (
+	"raft/pkg/rpc"
+)
 
 type LogType struct {
-	Head         *LogEntry
+	LogArray     []rpc.LogEntry
 	Length       int
-	LastTerm     int // term of last entry of Log
 	CommitLength int
+	LastTerm     int32
 }
 
 func (l *LogType) Init() {
-	l.Head = nil
+	l.LogArray = []rpc.LogEntry{}
 	l.Length = 0
 	l.CommitLength = 0
 	l.LastTerm = 0
 }
 
-func (l *LogType) Append(e *LogEntry) {
-	if l.Length == 0 {
-		l.Head = e
-		l.Length++
-		return
-	}
-
-	temp := l.Head
-	for i := 0; i < l.Length-1; i++ {
-		temp = temp.Next
-	}
-	temp.Next = e
+func (l *LogType) Append(e rpc.LogEntry) {
+	l.LogArray = append(l.LogArray, e)
 	l.Length++
 	if e.Term > l.LastTerm {
 		l.LastTerm = e.Term

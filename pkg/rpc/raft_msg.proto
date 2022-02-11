@@ -1,0 +1,36 @@
+syntax = "proto3";
+package rpc;
+
+message LogEntry {
+	repeated bytes Msg = 1;
+	int32 Term = 2;
+}
+
+message VoteRequestMsg {
+	int32 CandidateId = 1;
+	int32 CandidateTerm = 2;
+	int32 CandidateLogLen = 3;
+	int32 CandidateLogTerm = 4;
+}
+
+message VoteResponseMsg {
+	int32 VoterId = 1;
+	int32 VoterTerm = 2;
+	bool Granted = 3;
+}
+
+message LogRequestMsg {
+	int32 LeaderId = 1;
+	int32 LeaderTerm = 2;
+	int32 PrefixLen = 3;
+	int32 PrefixTerm = 4;
+	int32 CommitLen = 5;
+	repeated LogEntry Suffix = 6;
+}
+
+message LogResponseMsg {
+	int32 FollowerId = 1;
+	int32 FollowerTerm = 2;
+	int32 LogCommitAck = 3;
+	bool LogCommitSuccess = 4;
+}
