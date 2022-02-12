@@ -43,6 +43,8 @@ type RaftNode struct {
 	electionMinTimeout time.Duration
 	electionMaxTimeout time.Duration
 	commitTimeout      time.Duration
+
+	StopNode context.CancelFunc
 }
 
 func (r *RaftNode) Init(
@@ -80,100 +82,11 @@ func (r *RaftNode) Init(
 	r.CurrLeaderId = -1 // no leader now
 	r.VotedFor = r.nId
 	r.VotesReceived = make(map[int32]bool)
+
+	ctx, _stopNode := context.WithCancel(context.Background())
+	r.StopNode = _stopNode
+	go r.NodeMain(ctx)
 }
-
-// func (r *RaftNode) NodeMain(ctx context.Context) {
-// 	for {
-// 		select {
-// 		case <-ctx.Done():
-// 			return
-// 		case data := <-r.voteRequestCh:
-// 			voteReq := rpc.VoteRequestMsg{}
-// 			err := voteReq.Unmarshal(data.Data)
-// 			if err != nil {
-// 				lo.RaftError(r.nId, err.Error(), data)
-// 			}
-
-// 			if r.State == FOLLOWER {
-
-// 			} else if r.State == CANDIDATE {
-
-// 			} else { // LEADER
-
-// 			}
-
-// 		case data := <-r.voteResponseCh:
-// 			voteResp := rpc.VoteResponseMsg{}
-// 			err := voteResp.Unmarshal(data.Data)
-// 			if err != nil {
-// 				lo.RaftError(r.nId, err.Error(), data)
-// 			}
-
-// 			if r.State == FOLLOWER {
-// 				if r.Term < voteResp.VoterTerm {
-// 					r.Term = voteResp.VoterTerm
-// 					r.State = FOLLOWER
-// 					r.VotedFor = -1
-// 					// TODO ::
-// 					// cancel election timer
-// 				}
-// 			} else if r.State == CANDIDATE {
-// 				if r.Term == voteResp.VoterTerm && voteResp.Granted {
-// 					r.VotesReceived[voteResp.VoterId] = true
-// 					if r.countVotes() > int(math.Ceil((float64(NUMNODES)+1)/2)) {
-// 						r.State = LEADER
-// 						r.CurrLeaderId = r.nId
-// 						// TODO ::
-// 						// cancel election timer
-// 						// start REPLICATELOG
-// 					}
-// 				} else if r.Term < voteResp.VoterTerm {
-// 					r.Term = voteResp.VoterTerm
-// 					r.State = FOLLOWER
-// 					r.VotedFor = -1
-// 					// TODO ::
-// 					// cancel election timer
-// 				}
-// 			} else { // LEADER
-// 				if r.Term < voteResp.VoterTerm {
-// 					r.Term = voteResp.VoterTerm
-// 					r.State = FOLLOWER
-// 					r.VotedFor = -1
-// 					// TODO ::
-// 					// cancel election timer
-// 				}
-// 			}
-// 		case data := <-r.logRequestCh:
-// 			logReq := rpc.LogRequestMsg{}
-// 			err := logReq.Unmarshal(data.Data)
-// 			if err != nil {
-// 				lo.RaftError(r.nId, err.Error(), data)
-// 			}
-
-// 			if r.State == FOLLOWER {
-
-// 			} else if r.State == CANDIDATE {
-
-// 			} else { // LEADER
-
-// 			}
-// 		case data := <-r.logResponseCh:
-// 			logResp := rpc.LogResponseMsg{}
-// 			err := logResp.Unmarshal(data.Data)
-// 			if err != nil {
-// 				lo.RaftError(r.nId, err.Error(), data)
-// 			}
-
-// 			if r.State == FOLLOWER {
-
-// 			} else if r.State == CANDIDATE {
-
-// 			} else { // LEADER
-
-// 			}
-// 		}
-// 	}
-// }
 
 func (r *RaftNode) NodeMain(ctx context.Context) {
 	for {
