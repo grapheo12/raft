@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-var NUMNODES int // number of nodes known to everyone
+var NUMNODES int32 // number of nodes known to everyone
 
 const (
 	FOLLOWER  = iota

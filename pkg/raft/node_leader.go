@@ -3,6 +3,7 @@ package raft
 import (
 	"context"
 	"errors"
+	"math"
 	"raft/internal/lo"
 	"raft/pkg/rpc"
 )
@@ -16,6 +17,24 @@ func (n *RaftNode) resetAsLeader(ct int32) error {
 	}
 
 	return nil
+}
+
+func (n *RaftNode) commitEntries() {
+	for n.Log.CommitLength < n.Log.Length {
+		acks := 0
+		for nodeId := int32(1); nodeId <= NUMNODES; nodeId++ {
+			if n.AckedLen[nodeId] > int32(n.Log.CommitLength) {
+				acks++
+			}
+		}
+
+		if acks >= int(math.Ceil(float64(NUMNODES)+1/2)) {
+			// DELIVER log[commitlength].msg
+			n.Log.CommitLength++
+		} else {
+			break
+		}
+	}
 }
 
 func (n *RaftNode) replicateLog(followerId int32) {
@@ -45,7 +64,30 @@ func (n *RaftNode) Handle_Leader(ctx context.Context) {
 	case <-ctx.Done():
 		return
 	case data := <-n.voteRequestCh:
+		logResp := rpc.LogResponseMsg{}
+		err := logResp.Unmarshal(data.Data)
+		if err != nil {
+			lo.RaftError(n.nId, err.Error(), data)
+			return
+		}
+
+		if errr := n.resetAsLeader(logResp.FollowerTerm); errr != nil {
+			return
+		}
+
+	// Ignore
 	case data := <-n.voteResponseCh:
+		logResp := rpc.LogResponseMsg{}
+		err := logResp.Unmarshal(data.Data)
+		if err != nil {
+			lo.RaftError(n.nId, err.Error(), data)
+			return
+		}
+
+		if errr := n.resetAsLeader(logResp.FollowerTerm); errr != nil {
+			return
+		}
+	// Ignore
 	case data := <-n.logRequestCh:
 	case data := <-n.logResponseCh:
 		logResp := rpc.LogResponseMsg{}
