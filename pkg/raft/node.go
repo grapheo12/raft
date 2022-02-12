@@ -40,12 +40,15 @@ type RaftNode struct {
 
 	electionMinTimeout time.Duration
 	electionMaxTimeout time.Duration
+	voteTimer          time.Duration
 	commitTimeout      time.Duration
 
 	StopNode context.CancelFunc
 
 	heartbeatStarted bool
 	heartbeatCancel  context.CancelFunc
+
+	voteReqSent bool
 }
 
 func (r *RaftNode) Init(
@@ -73,6 +76,7 @@ func (r *RaftNode) Init(
 
 	r.electionMaxTimeout = eMaxT
 	r.electionMinTimeout = eMinT
+	r.voteTimer = eMinT
 	r.commitTimeout = cT
 
 	r.State = FOLLOWER
@@ -91,6 +95,8 @@ func (r *RaftNode) Init(
 	r.StopNode = _stopNode
 
 	r.heartbeatStarted = false
+
+	r.voteReqSent = false
 	go r.NodeMain(ctx)
 }
 

@@ -5,6 +5,7 @@ import (
 	"net"
 	"raft/internal/lo"
 	"raft/pkg/rpc"
+	"sync"
 )
 
 func (n *Network) Connect(nodeId int32, addr string) (net.Conn, error) {
@@ -70,7 +71,16 @@ func (n *Network) Send(nodeId int32, qId int32, data []byte) error {
 }
 
 func (n *Network) Broadcast(qId int32, data []byte) {
+	var wg sync.WaitGroup
+
 	for nId := range n.OutConn {
-		n.Send(nId, qId, data)
+		wg.Add(1)
+
+		go func(_n, q int32, d []byte) {
+			n.Send(_n, q, d)
+			wg.Done()
+		}(nId, qId, data)
 	}
+
+	wg.Wait()
 }
