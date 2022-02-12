@@ -89,6 +89,17 @@ func (n *RaftNode) Handle_Leader(ctx context.Context) {
 		}
 	// Ignore
 	case data := <-n.logRequestCh:
+		logResp := rpc.LogResponseMsg{}
+		err := logResp.Unmarshal(data.Data)
+		if err != nil {
+			lo.RaftError(n.nId, err.Error(), data)
+			return
+		}
+
+		if errr := n.resetAsLeader(logResp.FollowerTerm); errr != nil {
+			return
+		}
+	// Ignore
 	case data := <-n.logResponseCh:
 		logResp := rpc.LogResponseMsg{}
 		err := logResp.Unmarshal(data.Data)
