@@ -36,6 +36,9 @@ type RaftNode struct {
 	Term  int32 // Current Election Term
 	Log   LogType
 
+	SentLen  map[int32]int32 // node -> sent len to node
+	AckedLen map[int32]int32 // node -> acked len by node
+
 	CurrLeaderId  int32          // -1 for no leader
 	VotesReceived map[int32]bool // set of votes received
 	VotedFor      int32          // -1 for not voted yet
@@ -78,6 +81,9 @@ func (r *RaftNode) Init(
 	r.Log = LogType{}
 	r.Log.Init()
 	r.Term = 0
+
+	r.SentLen = make(map[int32]int32)
+	r.AckedLen = make(map[int32]int32)
 
 	r.CurrLeaderId = -1 // no leader now
 	r.VotedFor = r.nId
@@ -207,7 +213,7 @@ func (n *RaftNode) Handle_Follower(ctx context.Context) {
 			}
 			send_data, _ := resp.Marshal()
 
-			n.n.Send(n.nId, n.logResponseQId, send_data)
+			n.n.Send(logReq.LeaderId, n.logResponseQId, send_data)
 		} else {
 			resp := rpc.LogResponseMsg{
 				FollowerId:       n.nId,
