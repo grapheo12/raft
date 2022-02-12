@@ -43,6 +43,9 @@ type RaftNode struct {
 	commitTimeout      time.Duration
 
 	StopNode context.CancelFunc
+
+	heartbeatStarted bool
+	heartbeatCancel  context.CancelFunc
 }
 
 func (r *RaftNode) Init(
@@ -86,6 +89,8 @@ func (r *RaftNode) Init(
 
 	ctx, _stopNode := context.WithCancel(context.Background())
 	r.StopNode = _stopNode
+
+	r.heartbeatStarted = false
 	go r.NodeMain(ctx)
 }
 
@@ -97,6 +102,12 @@ func (r *RaftNode) NodeMain(ctx context.Context) {
 		} else if r.State == CANDIDATE {
 			r.Handle_Candidate(c)
 		} else {
+			if !r.heartbeatStarted {
+				cc, ccCancel := context.WithCancel(c)
+				r.heartbeatCancel = ccCancel
+				go r.heartbeat(cc)
+				r.heartbeatStarted = true
+			}
 			r.Handle_Leader(c)
 		}
 	}

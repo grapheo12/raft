@@ -125,7 +125,7 @@ func (n *RaftNode) Handle_Follower(ctx context.Context) {
 			}
 			send_data, _ := resp.Marshal()
 
-			n.n.Send(n.nId, n.logResponseQId, send_data)
+			n.n.Send(logReq.LeaderId, n.logResponseQId, send_data)
 		}
 
 	case data := <-n.logResponseCh:
