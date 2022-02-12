@@ -14,3 +14,4 @@ clean:
 .PHONY: protocompile
 protocompile:
 	cd pkg/rpc && protoc --gofast_out=. network.proto && cd ../../
+	cd pkg/rpc && protoc --gofast_out=. raft_msg.proto && cd ../../
