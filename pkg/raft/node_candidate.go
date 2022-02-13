@@ -24,7 +24,8 @@ func (n *RaftNode) resetAsCandidate(ct int32) error {
 
 func (n *RaftNode) isMajority() bool {
 	numVotes := len(n.VotesReceived)
-	return (numVotes >= int(math.Ceil(float64(n.NUMNODES)+1.0/2)))
+	lo.RaftInfo(n.nId, "votes received =", numVotes)
+	return (numVotes >= int(math.Ceil((float64(n.NUMNODES)+1.0)/2)))
 }
 
 func (n *RaftNode) Handle_Candidate(ctx context.Context) {
@@ -42,6 +43,7 @@ func (n *RaftNode) Handle_Candidate(ctx context.Context) {
 		}
 		send_data, _ := voteReq.Marshal()
 		n.n.Broadcast(n.voteRequestQId, send_data)
+		lo.RaftInfo(n.nId, "Broadcasted VoteRequest")
 	}
 
 	tv := n.electionMinTimeout.Milliseconds()
@@ -64,6 +66,9 @@ func (n *RaftNode) Handle_Candidate(ctx context.Context) {
 			lo.RaftError(n.nId, err.Error(), data)
 			return
 		}
+
+		lo.RaftInfo(n.nId, "Received VoteRequest from", voteReq.CandidateId)
+
 		if errr := n.resetAsCandidate(voteReq.CandidateTerm); errr != nil {
 			return
 		}
@@ -106,9 +111,13 @@ func (n *RaftNode) Handle_Candidate(ctx context.Context) {
 			lo.RaftError(n.nId, err.Error(), data)
 			return
 		}
+
+		lo.RaftInfo(n.nId, "Received LogRequest from", logReq.LeaderId)
+
 		if errr := n.resetAsCandidate(logReq.LeaderTerm); errr != nil {
 			return
 		}
+		// Ignore
 
 	case data := <-n.logResponseCh:
 		logResp := rpc.LogResponseMsg{}
@@ -117,6 +126,9 @@ func (n *RaftNode) Handle_Candidate(ctx context.Context) {
 			lo.RaftError(n.nId, err.Error(), data)
 			return
 		}
+
+		lo.RaftInfo(n.nId, "Received LogResponse from", logResp.FollowerId)
+
 		if errr := n.resetAsCandidate(logResp.FollowerTerm); errr != nil {
 			return
 		}

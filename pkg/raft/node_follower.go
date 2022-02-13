@@ -44,9 +44,6 @@ func (n *RaftNode) Handle_Follower(ctx context.Context) {
 
 		lo.RaftInfo(n.nId, "Received VoteRequest from ", voteReq.CandidateId)
 
-		// if errr := n.resetAsFollower(voteReq.CandidateTerm); errr != nil {
-		// 	return
-		// }
 		n.resetAsFollower(voteReq.CandidateTerm)
 
 		lastTerm := int32(0)
@@ -93,6 +90,9 @@ func (n *RaftNode) Handle_Follower(ctx context.Context) {
 			lo.RaftError(n.nId, err.Error(), data)
 			return
 		}
+
+		lo.RaftInfo(n.nId, "Recieved VoteResponse from", voteResp.VoterId)
+
 		if errr := n.resetAsFollower(voteResp.VoterTerm); errr != nil {
 			return
 		}
@@ -104,6 +104,8 @@ func (n *RaftNode) Handle_Follower(ctx context.Context) {
 			lo.RaftError(n.nId, err.Error(), data)
 			return
 		}
+
+		lo.RaftInfo(n.nId, "Received LogRequest from", logReq.LeaderId)
 		n.resetAsFollower(logReq.LeaderTerm)
 
 		if n.Term == logReq.LeaderTerm {
@@ -127,6 +129,8 @@ func (n *RaftNode) Handle_Follower(ctx context.Context) {
 			send_data, _ := resp.Marshal()
 
 			n.n.Send(logReq.LeaderId, n.logResponseQId, send_data)
+			lo.RaftInfo(n.nId, "Sent LogResponse to", logReq.LeaderId, "commit: true")
+
 		} else {
 			resp := rpc.LogResponseMsg{
 				FollowerId:       n.nId,
@@ -137,6 +141,7 @@ func (n *RaftNode) Handle_Follower(ctx context.Context) {
 			send_data, _ := resp.Marshal()
 
 			n.n.Send(logReq.LeaderId, n.logResponseQId, send_data)
+			lo.RaftInfo(n.nId, "Sent LogResponse to", logReq.LeaderId, "commit: false")
 		}
 
 	case data := <-n.logResponseCh:
@@ -146,6 +151,9 @@ func (n *RaftNode) Handle_Follower(ctx context.Context) {
 			lo.RaftError(n.nId, err.Error(), data)
 			return
 		}
+
+		lo.RaftInfo(n.nId, "Received LogResponse from", logResp.FollowerId)
+
 		if errr := n.resetAsFollower(logResp.FollowerTerm); errr != nil {
 			return
 		}

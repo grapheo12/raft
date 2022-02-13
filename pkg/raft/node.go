@@ -63,7 +63,7 @@ func (r *RaftNode) Init(
 
 	r.n = n
 	r.nId = n.NodeId
-	r.NUMNODES = int32(len(n.Peers))
+	r.NUMNODES = int32(len(n.Peers)) + 1
 	r.voteRequestQId = voteRequestQId
 	r.voteResponseQId = voteResponseQId
 	r.logRequestQId = logRequestQId
