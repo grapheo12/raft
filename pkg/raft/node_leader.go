@@ -25,14 +25,14 @@ func (n *RaftNode) resetAsLeader(ct int32) error {
 func (n *RaftNode) commitEntries() {
 	for n.Log.CommitLength < n.Log.Length {
 		acks := 0
-		for nodeId := 0; nodeId < int(NUMNODES); nodeId++ {
+		for nodeId := 0; nodeId < int(n.NUMNODES); nodeId++ {
 			if n.AckedLen[int32(nodeId)] > int32(n.Log.CommitLength) {
 				acks++
 			}
 		}
 
-		if acks >= int(math.Ceil(float64(NUMNODES)+1.0/2)) {
-			// DELIVER log[commitlength].msg
+		if acks >= int(math.Ceil(float64(n.NUMNODES)+1.0/2)) {
+			n.ClientOut <- n.Log.LogArray[n.Log.CommitLength].Msg
 			n.Log.CommitLength++
 		} else {
 			break
@@ -68,7 +68,7 @@ func (n *RaftNode) heartbeat(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		default:
-			for i := 0; i < int(NUMNODES); i++ {
+			for i := 0; i < int(n.NUMNODES); i++ {
 				if i != int(n.nId) {
 					n.replicateLog(int32(i))
 				}
@@ -82,6 +82,16 @@ func (n *RaftNode) Handle_Leader(ctx context.Context) {
 	select {
 	case <-ctx.Done():
 		return
+	case data := <-n.ClientIn:
+		n.Log.Append(&rpc.LogEntry{
+			Msg:  data,
+			Term: n.Term,
+		})
+		for i := 0; i < int(n.NUMNODES); i++ {
+			if i != int(n.nId) {
+				n.replicateLog(int32(i))
+			}
+		}
 	case data := <-n.voteRequestCh:
 		logResp := rpc.LogResponseMsg{}
 		err := logResp.Unmarshal(data.Data)

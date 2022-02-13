@@ -3,6 +3,7 @@ package raft
 import (
 	"context"
 	"errors"
+	"math"
 	"math/rand"
 	"raft/internal/lo"
 	"raft/pkg/rpc"
@@ -18,6 +19,11 @@ func (n *RaftNode) resetAsCandidate(ct int32) error {
 		return errors.New("Protyahar")
 	}
 	return nil
+}
+
+func (n *RaftNode) isMajority() bool {
+	numVotes := len(n.VotesReceived)
+	return (numVotes >= int(math.Ceil(float64(n.NUMNODES)+1.0/2)))
 }
 
 func (n *RaftNode) Handle_Candidate(ctx context.Context) {
@@ -60,7 +66,6 @@ func (n *RaftNode) Handle_Candidate(ctx context.Context) {
 			return
 		}
 		// Ignore
-
 	case data := <-n.voteResponseCh:
 		voteResp := rpc.VoteResponseMsg{}
 		err := voteResp.Unmarshal(data.Data)
@@ -71,7 +76,22 @@ func (n *RaftNode) Handle_Candidate(ctx context.Context) {
 		if errr := n.resetAsCandidate(voteResp.VoterTerm); errr != nil {
 			return
 		}
-		// Ignore
+
+		if voteResp.Granted {
+			n.VotesReceived[voteResp.VoterId] = true
+		}
+
+		if n.isMajority() {
+			n.State = LEADER
+			n.voteReqSent = false
+
+			for i := int32(0); i < n.NUMNODES; i++ {
+				if i != n.nId {
+					n.SentLen[i] = int32(n.Log.Length)
+					n.AckedLen[i] = 0
+				}
+			}
+		}
 	case data := <-n.logRequestCh:
 		logReq := rpc.LogRequestMsg{}
 		err := logReq.Unmarshal(data.Data)

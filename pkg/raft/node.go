@@ -3,10 +3,9 @@ package raft
 import (
 	"context"
 	"raft/pkg/network"
+	"raft/pkg/rpc"
 	"time"
 )
-
-var NUMNODES int32 // number of nodes known to everyone
 
 const (
 	FOLLOWER  = iota
@@ -16,6 +15,7 @@ const (
 
 type RaftNode struct {
 	n               *network.Network
+	NUMNODES        int32 // number of nodes known to everyone
 	nId             int32
 	voteRequestQId  int32
 	voteResponseQId int32
@@ -26,6 +26,9 @@ type RaftNode struct {
 	voteResponseCh network.Queue
 	logRequestCh   network.Queue
 	logResponseCh  network.Queue
+
+	ClientIn  chan []byte
+	ClientOut chan []byte
 
 	State int   // FOLLOWER, CANDIDATE, LEADER
 	Term  int32 // Current Election Term
@@ -59,6 +62,7 @@ func (r *RaftNode) Init(
 
 	r.n = n
 	r.nId = n.NodeId
+	r.NUMNODES = int32(len(n.Peers))
 	r.voteRequestQId = voteRequestQId
 	r.voteResponseQId = voteResponseQId
 	r.logRequestQId = logRequestQId
@@ -68,6 +72,9 @@ func (r *RaftNode) Init(
 	r.voteResponseCh = make(network.Queue)
 	r.logRequestCh = make(network.Queue)
 	r.logResponseCh = make(network.Queue)
+
+	r.ClientIn = make(chan []byte)
+	r.ClientOut = make(chan []byte)
 
 	r.n.RegisterQueue(r.logRequestQId, r.logRequestCh)
 	r.n.RegisterQueue(r.logResponseQId, r.logResponseCh)
@@ -119,57 +126,31 @@ func (r *RaftNode) NodeMain(ctx context.Context) {
 	}
 }
 
-// function a node calls after a node receives VoteRequestMsg
-// func (n *RaftNode) Handle_VoteRequest(m rpc.VoteRequestMsg) {
-// 	if m.CandidateTerm > n.Term {
-// 		n.Term = m.CandidateTerm
-// 		n.State = FOLLOWER
-// 		n.VotedFor = -1
-// 	}
+func (n *RaftNode) AppendEntries(prefixLen int32, leaderCommitLen int32, suffix []*rpc.LogEntry) {
+	if len(suffix) > 0 && n.Log.Length > int(prefixLen) {
+		index := n.Log.Length
+		if index > int(prefixLen)+len(suffix) {
+			index = int(prefixLen) + len(suffix)
+		}
+		index--
 
-// 	var lastTerm int32 = 0
-// 	if n.Log.Length > 0 {
-// 		lastTerm = n.Log.LastTerm
-// 	}
+		if n.Log.LogArray[index].Term != suffix[index-int(prefixLen)].Term {
+			n.Log.LogArray = n.Log.LogArray[:prefixLen]
+			n.Log.Length = int(prefixLen)
+			n.Log.LastTerm = n.Log.LogArray[prefixLen-1].Term
+		}
+	}
 
-// 	// if requester log is okay to vote for
-// 	logOk := (m.CandidateLogTerm > lastTerm) || ((m.CandidateTerm == lastTerm) && (int(m.CandidateLogLen) > n.Log.Length))
+	if int(prefixLen)+len(suffix) > n.Log.Length {
+		n.Log.LogArray = append(n.Log.LogArray, suffix[n.Log.Length-int(prefixLen):]...)
+		n.Log.Length = len(n.Log.LogArray)
+		n.Log.LastTerm = n.Log.LogArray[n.Log.Length-1].Term
+	}
 
-// 	if (m.CandidateTerm == n.Term) && logOk && (n.VotedFor == m.CandidateId || n.VotedFor == -1) {
-// 		n.VotedFor = m.CandidateId
-// 		// TODO :: send VoteResponse with true granted
-// 	} //else {
-// 	// TODO :: send VoteResponse to cadidateId with false granted
-// 	//}
-// }
-
-// // a node counts its votes
-// func (n *RaftNode) countVotes() int {
-// 	sum := 0
-// 	for _, granted := range n.VotesReceived {
-// 		if granted {
-// 			sum++
-// 		}
-// 	}
-// 	return sum
-// }
-
-// // function a node will invoke after receiving a VoteResponseMsg
-// func (n *RaftNode) Handle_VoteResponse(m rpc.VoteResponseMsg) {
-// 	if n.State == CANDIDATE && n.Term == m.VoterTerm && m.Granted {
-// 		n.VotesReceived[m.VoterId] = true
-// 		if n.countVotes() > int(math.Ceil((float64(NUMNODES)+1)/2)) {
-// 			n.State = LEADER
-// 			n.CurrLeaderId = n.nId
-// 			// TODO ::
-// 			// cancel election timer
-// 			// start REPLICATELOG
-// 		}
-// 	} else if m.VoterTerm > n.Term {
-// 		n.Term = m.VoterTerm
-// 		n.State = FOLLOWER
-// 		n.VotedFor = -1
-// 		// TODO ::
-// 		// cancel election timer
-// 	}
-// }
+	if leaderCommitLen > int32(n.Log.CommitLength) {
+		for i := n.Log.CommitLength; i < int(leaderCommitLen); i++ {
+			n.ClientOut <- n.Log.LogArray[i].Msg
+		}
+		n.Log.CommitLength = int(leaderCommitLen)
+	}
+}

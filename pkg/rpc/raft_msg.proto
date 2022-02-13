@@ -2,7 +2,7 @@ syntax = "proto3";
 package rpc;
 
 message LogEntry {
-	repeated bytes Msg = 1;
+	bytes Msg = 1;
 	int32 Term = 2;
 }
 

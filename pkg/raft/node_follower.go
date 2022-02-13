@@ -104,7 +104,7 @@ func (n *RaftNode) Handle_Follower(ctx context.Context) {
 				(n.Log.LogArray[logReq.PrefixLen-1].Term == logReq.PrefixTerm))
 
 		if (logReq.LeaderTerm == n.Term) && logOk {
-			n.Log.AppendEntries(logReq.PrefixLen, logReq.CommitLen, logReq.Suffix)
+			n.AppendEntries(logReq.PrefixLen, logReq.CommitLen, logReq.Suffix)
 			ack := int(logReq.PrefixLen) + len(logReq.Suffix)
 
 			resp := rpc.LogResponseMsg{
