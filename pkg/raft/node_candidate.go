@@ -16,6 +16,7 @@ func (n *RaftNode) resetAsCandidate(ct int32) error {
 		n.State = FOLLOWER
 		n.VotedFor = -1
 		n.voteReqSent = false
+		lo.RaftInfo(n.nId, "Higher term found : [", ct, "], state [FOLLOWER -> FOLLOWER]")
 		return errors.New("Protyahar")
 	}
 	return nil
@@ -55,6 +56,7 @@ func (n *RaftNode) Handle_Candidate(ctx context.Context) {
 		// Start voting again
 		n.Term--
 		n.voteReqSent = false
+		lo.RaftInfo(n.nId, "Restarting vote")
 	case data := <-n.voteRequestCh:
 		voteReq := rpc.VoteRequestMsg{}
 		err := voteReq.Unmarshal(data.Data)
@@ -73,6 +75,9 @@ func (n *RaftNode) Handle_Candidate(ctx context.Context) {
 			lo.RaftError(n.nId, err.Error(), data)
 			return
 		}
+
+		lo.RaftInfo(n.nId, "Received vote response from", voteResp.VoterId, "voted", voteResp.Granted)
+
 		if errr := n.resetAsCandidate(voteResp.VoterTerm); errr != nil {
 			return
 		}
@@ -92,7 +97,7 @@ func (n *RaftNode) Handle_Candidate(ctx context.Context) {
 				}
 			}
 
-			lo.RaftInfo(n.nId, "I am the leader")
+			lo.RaftInfo(n.nId, "Achieved quorum, [CANDIDATE -> LEADER]")
 		}
 	case data := <-n.logRequestCh:
 		logReq := rpc.LogRequestMsg{}

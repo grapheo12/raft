@@ -14,6 +14,7 @@ func (n *RaftNode) resetAsFollower(ct int32) error {
 		n.Term = ct
 		n.State = FOLLOWER
 		n.VotedFor = -1
+		lo.RaftInfo(n.nId, "Higher term found : [", ct, "], state [FOLLOWER -> FOLLOWER]")
 		return errors.New("Podotyag")
 	}
 
@@ -31,6 +32,7 @@ func (n *RaftNode) Handle_Follower(ctx context.Context) {
 		return
 	case <-timeout.Done():
 		n.State = CANDIDATE
+		lo.RaftInfo(n.nId, "Timeout occured, state [FOLLOWER -> CANDIDATE]")
 		return
 	case data := <-n.voteRequestCh:
 		voteReq := rpc.VoteRequestMsg{}
@@ -39,19 +41,25 @@ func (n *RaftNode) Handle_Follower(ctx context.Context) {
 			lo.RaftError(n.nId, err.Error(), data)
 			return
 		}
-		if errr := n.resetAsFollower(voteReq.CandidateTerm); errr != nil {
-			return
-		}
 
-		var lastTerm int32 = 0
+		lo.RaftInfo(n.nId, "Received VoteRequest from ", voteReq.CandidateId)
+
+		// if errr := n.resetAsFollower(voteReq.CandidateTerm); errr != nil {
+		// 	return
+		// }
+		n.resetAsFollower(voteReq.CandidateTerm)
+
+		lastTerm := int32(0)
 		if n.Log.Length > 0 {
 			lastTerm = n.Log.LastTerm
 		}
 
 		// if requester log is okay to vote for
 		logOk := (voteReq.CandidateLogTerm > lastTerm) ||
-			((voteReq.CandidateTerm == lastTerm) &&
+			((voteReq.CandidateLogTerm == lastTerm) &&
 				(int(voteReq.CandidateLogLen) >= n.Log.Length))
+
+		lo.RaftInfo(n.nId, "log of candidate is okay?", logOk)
 
 		if (voteReq.CandidateTerm == n.Term) && logOk &&
 			(n.VotedFor == voteReq.CandidateId || n.VotedFor == -1) {
@@ -65,6 +73,7 @@ func (n *RaftNode) Handle_Follower(ctx context.Context) {
 			}
 			send_data, _ := resp.Marshal()
 			n.n.Send(voteReq.CandidateId, n.voteResponseQId, send_data)
+			lo.RaftInfo(n.nId, "Sent vote for", voteReq.CandidateId)
 		} else {
 			// send VoteResponse to cadidateId with false granted
 			resp := rpc.VoteResponseMsg{
@@ -74,7 +83,9 @@ func (n *RaftNode) Handle_Follower(ctx context.Context) {
 			}
 			send_data, _ := resp.Marshal()
 			n.n.Send(voteReq.CandidateId, n.voteResponseQId, send_data)
+			lo.RaftInfo(n.nId, "Sent vote against", voteReq.CandidateId)
 		}
+
 	case data := <-n.voteResponseCh:
 		voteResp := rpc.VoteResponseMsg{}
 		err := voteResp.Unmarshal(data.Data)

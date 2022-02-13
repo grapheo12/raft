@@ -2,6 +2,7 @@ package raft
 
 import (
 	"context"
+	"raft/internal/lo"
 	"raft/pkg/network"
 	"raft/pkg/rpc"
 	"time"
@@ -111,15 +112,19 @@ func (r *RaftNode) NodeMain(ctx context.Context) {
 	for {
 		c, _ := context.WithCancel(ctx)
 		if r.State == FOLLOWER {
+			lo.RaftInfo(r.nId, "Found state FOLLOWER")
 			r.Handle_Follower(c)
 		} else if r.State == CANDIDATE {
+			lo.RaftInfo(r.nId, "Found state CANDIDATE")
 			r.Handle_Candidate(c)
 		} else {
+			lo.RaftInfo(r.nId, "Found state LEADER")
 			if !r.heartbeatStarted {
 				cc, ccCancel := context.WithCancel(c)
 				r.heartbeatCancel = ccCancel
 				go r.heartbeat(cc)
 				r.heartbeatStarted = true
+				lo.RaftInfo(r.nId, "hearbeat started")
 			}
 			r.Handle_Leader(c)
 		}
