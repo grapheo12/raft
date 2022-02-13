@@ -91,6 +91,8 @@ func (n *RaftNode) Handle_Candidate(ctx context.Context) {
 					n.AckedLen[i] = 0
 				}
 			}
+
+			lo.RaftInfo(n.nId, "I am the leader")
 		}
 	case data := <-n.logRequestCh:
 		logReq := rpc.LogRequestMsg{}

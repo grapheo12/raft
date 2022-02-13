@@ -1,49 +1,18 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"os"
 	"raft/internal/lo"
 	"raft/pkg/network"
-	"sync"
+	"raft/pkg/raft"
+	"raft/pkg/server"
 	"time"
 )
 
-func worker(n *network.Network, n_peers int) {
-	lo.LOG.AddSink(os.Stdout, 500)
-	file, _ := os.OpenFile("test.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
-	lo.LOG.AddSink(file, 0)
-
-	ch := make(network.Queue)
-	n.RegisterQueue(1, ch)
-	lo.AppInfo(n.NodeId, "Starting operation in 1s")
-	time.Sleep(time.Second)
-
-	snd := 0
-	rcv := 0
-
-	for snd < 100 {
-		select {
-		case data := <-ch:
-			rcv++
-			lo.AppInfo(n.NodeId, "<- Node", data.NodeId, ": ", string(data.Data))
-		default:
-			chk := time.Now()
-			n.Broadcast(1, []byte(fmt.Sprintf("Greetings from %d", n.NodeId)))
-			t := time.Since(chk)
-
-			lo.AppInfo(n.NodeId, "Msg Time:", t)
-
-			snd++
-		}
-	}
-
-	lo.AppWarn(n.NodeId, "Stopping operation in 2s")
-	time.Sleep(2 * time.Second)
-
-}
-
 func main() {
+	lo.LOG.AddSink(os.Stdout, 25)
+
 	ports := []string{":2022", ":3022", ":4022"}
 	nets := make([]*network.Network, len(ports))
 
@@ -69,20 +38,39 @@ func main() {
 	}
 	time.Sleep(200 * time.Microsecond)
 
-	var wg sync.WaitGroup
-
+	rNodes := make([]*raft.RaftNode, len(ports))
 	for i := range ports {
-		wg.Add(1)
-		go func(id int) {
-			worker(nets[id], len(ports))
-			wg.Done()
-		}(i)
+		rNodes[i] = &raft.RaftNode{}
+		rNodes[i].Init(nets[i], 100, 200, 300, 400,
+			150*time.Millisecond, 300*time.Millisecond, 150*time.Millisecond)
+	}
+	time.Sleep(200 * time.Microsecond)
+
+	serverPorts := []string{":2020", ":3020", ":4020"}
+	servers := make([]*server.Server, len(serverPorts))
+	peers := make(map[int32]string)
+	for i := range serverPorts {
+		peers[int32(i)] = "127.0.0.1" + serverPorts[i]
 	}
 
-	wg.Wait()
-
-	for i := range ports {
-		nets[i].StopServer()
+	for i := range serverPorts {
+		servers[i] = &server.Server{}
+		servers[i].Init(serverPorts[i], rNodes[i], int32(i), peers)
 	}
 
+	time.Sleep(200 * time.Microsecond)
+
+	sigs := make(chan os.Signal, 1)
+	done := make(chan bool, 1)
+
+	go func() {
+		<-sigs
+		for i := range ports {
+			nets[i].StopServer()
+			servers[i].Srv.Shutdown(context.Background())
+		}
+		done <- true
+	}()
+	<-done
+	lo.AppInfo(int32(-1), "Exiting")
 }
