@@ -35,6 +35,7 @@ func (n *RaftNode) commitEntries() {
 		if acks >= int(math.Ceil((float64(n.NUMNODES)+1.0)/2)) {
 			n.ClientOut <- n.Log.LogArray[n.Log.CommitLength].Msg
 			n.Log.CommitLength++
+			lo.RaftInfo(n.nId, "Commited upto", n.Log.CommitLength)
 		} else {
 			break
 		}
@@ -90,11 +91,16 @@ func (n *RaftNode) Handle_Leader(ctx context.Context) {
 			Msg:  data,
 			Term: n.Term,
 		})
+
+		lo.RaftInfo(n.nId, "Recieved Msg from Client:", string(data))
+		lo.RaftInfo(n.nId, "Current Log:", n.Log.LogArray.String())
+
 		for i := 0; i < int(n.NUMNODES); i++ {
 			if i != int(n.nId) {
 				n.replicateLog(int32(i))
 			}
 		}
+
 	case data := <-n.voteRequestCh:
 		voteReq := rpc.VoteRequestMsg{}
 		err := voteReq.Unmarshal(data.Data)
