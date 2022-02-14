@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"raft/internal/lo"
 	"raft/pkg/raft"
@@ -14,6 +15,9 @@ type Server struct {
 	RNode *raft.RaftNode
 	Peers map[int32]string // nodeId -> server's IP:addr
 	Srv   *http.Server
+
+	DB      *Buffer
+	dbClose context.CancelFunc
 }
 
 func (s *Server) Init(port string, rNode *raft.RaftNode, nId int32, peers map[int32]string) {
@@ -21,6 +25,12 @@ func (s *Server) Init(port string, rNode *raft.RaftNode, nId int32, peers map[in
 	s.Port = port
 	s.RNode = rNode
 	s.nId = nId
+
+	s.DB = &Buffer{}
+	s.DB.Init(rNode)
+	ctx, cancel := context.WithCancel(context.Background())
+	s.dbClose = cancel
+	go s.DB.FetchDataWorker(ctx)
 
 	router := mux.NewRouter()
 	s.RegisterRoutes(router)
@@ -40,4 +50,9 @@ func (s *Server) Init(port string, rNode *raft.RaftNode, nId int32, peers map[in
 		}
 	}(&srv)
 
+}
+
+func (s *Server) Shutdown() {
+	s.Srv.Shutdown(context.Background())
+	s.dbClose()
 }

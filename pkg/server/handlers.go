@@ -1,15 +1,24 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"net/http"
 	"raft/pkg/raft"
+	"sync"
+	"time"
 
 	"github.com/gorilla/mux"
 )
 
 type ReadResp struct {
-	Msg raft.LogArrayType `json:"message"`
+	Msg []string `json:"message"`
+}
+
+type WriteReq struct {
+	Content string `json:"content"`
 }
 
 func (s *Server) ping(w http.ResponseWriter, r *http.Request) {
@@ -24,7 +33,7 @@ func (s *Server) raftRead(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-type", "application/json")
 
 	resp := ReadResp{
-		Msg: s.RNode.Log.LogArray,
+		Msg: s.DB.GetAll(),
 	}
 
 	data, _ := json.Marshal(resp)
@@ -32,10 +41,61 @@ func (s *Server) raftRead(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) raftWrite(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-type", "application/json")
+	raw, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Header().Set("Content-type", "application/json")
+		w.Write([]byte("{\"message\": \"No request body\"}"))
+		return
+	}
+	req := WriteReq{}
+	err = json.Unmarshal(raw, &req)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Header().Set("Content-type", "application/json")
+		w.Write([]byte("{\"message\": \"Bad request body\"}"))
+		return
+	}
 
-	w.Write([]byte("{\"message\": \"pong\"}"))
+	if s.RNode.State != raft.LEADER {
+		w.WriteHeader(http.StatusBadGateway)
+		w.Header().Set("Content-type", "application/json")
+		w.Write([]byte(`{
+			"message": "Not Leader",
+			"leader":` + fmt.Sprintf("%d", s.RNode.CurrLeaderId) + `
+		}`))
+		return
+	}
+
+	timeout, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	var wg sync.WaitGroup
+	written := false
+
+	defer cancel()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		select {
+		case <-timeout.Done():
+			return
+		case s.RNode.ClientIn <- []byte(req.Content):
+			written = true
+			return
+		}
+	}()
+
+	wg.Wait()
+
+	if !written {
+		w.WriteHeader(http.StatusRequestTimeout)
+		w.Header().Set("Content-type", "application/json")
+		w.Write([]byte("{\"message\": \"Timeout while writing\"}"))
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	w.Header().Set("Content-type", "application/json")
+	w.Write([]byte("{\"message\": \"Write successful\"}"))
 }
 
 func (s *Server) RegisterRoutes(router *mux.Router) {
