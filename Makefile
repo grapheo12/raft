@@ -1,10 +1,14 @@
 GOFILES = $(shell find . -name "*.go")
 
-all: bin/raft
+all: bin/raft bin/client
 
-bin/raft: cmd/main.go $(GOFILES)
+bin/raft: cmd/server/main.go $(GOFILES)
 	mkdir -p bin
-	go build -o bin/raft cmd/main.go
+	go build -o bin/raft cmd/server/main.go
+
+bin/client: cmd/client/main.go $(GOFILES)
+	mkdir -p bin
+	go build -o bin/client cmd/client/main.go
 
 .PHONY: clean
 clean:

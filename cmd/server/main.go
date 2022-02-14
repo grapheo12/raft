@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"os"
 	"raft/internal/lo"
 	"raft/pkg/network"
@@ -67,7 +66,7 @@ func main() {
 		<-sigs
 		for i := range ports {
 			nets[i].StopServer()
-			servers[i].Srv.Shutdown(context.Background())
+			servers[i].Shutdown()
 		}
 		done <- true
 	}()

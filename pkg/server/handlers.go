@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"raft/pkg/raft"
@@ -62,7 +61,7 @@ func (s *Server) raftWrite(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-type", "application/json")
 		w.Write([]byte(`{
 			"message": "Not Leader",
-			"leader":` + fmt.Sprintf("%d", s.RNode.CurrLeaderId) + `
+			"leader": "` + s.Peers[s.RNode.CurrLeaderId] + `"
 		}`))
 		return
 	}
