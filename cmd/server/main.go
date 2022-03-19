@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"raft/internal/config"
 	"raft/internal/lo"
 	"raft/pkg/network"
 	"raft/pkg/raft"
@@ -10,52 +11,39 @@ import (
 )
 
 func main() {
-	lo.LOG.AddSink(os.Stdout, 25)
+	cfg := config.ParseConfigs(os.Args)
 
-	ports := []string{":2022", ":3022", ":4022"}
-	nets := make([]*network.Network, len(ports))
-
-	for i, p := range ports {
-		nets[i] = &network.Network{}
-		err := nets[i].Init(p, int32(i))
-		if err != nil {
-			lo.AppError(int32(-1), err.Error())
-		}
+	net := &network.Network{}
+	err := net.Init(cfg.NetworkPort, cfg.Id)
+	if err != nil {
+		lo.AppError(int32(-1), err.Error())
 	}
 
 	time.Sleep(200 * time.Microsecond)
 
-	for i := range ports {
-		for j, p2 := range ports {
-			if i != j {
-				_, err := nets[i].Connect(int32(j), "127.0.0.1"+p2)
-				if err != nil {
-					lo.AppError(int32(-1), err.Error())
-				}
+	for idx, member := range cfg.NetworkMembers {
+		if idx != int(cfg.Id) {
+			_, err := net.Connect(int32(idx), member)
+			if err != nil {
+				lo.AppError(int32(-1), err.Error())
 			}
 		}
 	}
+
 	time.Sleep(200 * time.Microsecond)
 
-	rNodes := make([]*raft.RaftNode, len(ports))
-	for i := range ports {
-		rNodes[i] = &raft.RaftNode{}
-		rNodes[i].Init(nets[i], 100, 200, 300, 400,
-			150*time.Millisecond, 300*time.Millisecond, 150*time.Millisecond)
-	}
+	rNode := &raft.RaftNode{}
+	rNode.Init(net, 100, 200, 300, 400, cfg.EMinT, cfg.EMaxT, cfg.EMinT)
+
 	time.Sleep(200 * time.Microsecond)
 
-	serverPorts := []string{":2020", ":3020", ":4020"}
-	servers := make([]*server.Server, len(serverPorts))
 	peers := make(map[int32]string)
-	for i := range serverPorts {
-		peers[int32(i)] = "127.0.0.1" + serverPorts[i]
+	for i := range cfg.ClientMembers {
+		peers[int32(i)] = cfg.ClientMembers[i]
 	}
 
-	for i := range serverPorts {
-		servers[i] = &server.Server{}
-		servers[i].Init(serverPorts[i], rNodes[i], int32(i), peers)
-	}
+	server := &server.Server{}
+	server.Init(cfg.ClientPort, rNode, cfg.Id, peers)
 
 	time.Sleep(200 * time.Microsecond)
 
@@ -64,12 +52,11 @@ func main() {
 
 	go func() {
 		<-sigs
-		for i := range ports {
-			nets[i].StopServer()
-			servers[i].Shutdown()
-		}
+		net.StopServer()
+		server.Shutdown()
 		done <- true
 	}()
 	<-done
 	lo.AppInfo(int32(-1), "Exiting")
+
 }
