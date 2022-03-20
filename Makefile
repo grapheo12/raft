@@ -19,3 +19,7 @@ clean:
 protocompile:
 	cd pkg/rpc && protoc --gofast_out=. network.proto && cd ../../
 	cd pkg/rpc && protoc --gofast_out=. raft_msg.proto && cd ../../
+
+.PHONY: perf_test
+perf_test: bin/raft bin/client tests/perf_tests/perf_test.py tests/perf_tests/config.ini
+	python3 tests/perf_tests/perf_test.py

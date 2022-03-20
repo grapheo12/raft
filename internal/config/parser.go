@@ -15,7 +15,8 @@ type ConfigSet struct {
 	ClientPort    string
 	ClientMembers []string
 
-	LogLevel int
+	LogLevel   int
+	WarmupTime time.Duration
 }
 
 func ParseConfigs(src []string) ConfigSet {

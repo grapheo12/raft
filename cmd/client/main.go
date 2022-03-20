@@ -36,6 +36,7 @@ func readReq(addr string) {
 }
 
 func writeReq(addr, msg string) {
+	fmt.Println(addr, msg)
 	req := server.WriteReq{
 		Content: msg,
 	}
@@ -65,6 +66,7 @@ func writeReq(addr, msg string) {
 			fmt.Println(err.Error())
 			return
 		}
+		fmt.Println(body)
 
 		newAddr, ok := body["leader"]
 		if !ok {
