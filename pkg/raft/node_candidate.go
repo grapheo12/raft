@@ -44,6 +44,7 @@ func (n *RaftNode) Handle_Candidate(ctx context.Context) {
 		send_data, _ := voteReq.Marshal()
 		n.n.Broadcast(n.voteRequestQId, send_data)
 		lo.RaftInfo(n.nId, "Broadcasted VoteRequest")
+		n.voteReqSent = true
 	}
 
 	tv := n.electionMinTimeout.Milliseconds()

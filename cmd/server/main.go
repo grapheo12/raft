@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
 	"raft/internal/config"
 	"raft/internal/lo"
@@ -15,6 +16,7 @@ func main() {
 	cfg := config.ParseConfigs(os.Args)
 	lo.LOG.AddSink(os.Stdout, cfg.LogLevel)
 
+	rand.Seed(int64(cfg.Id))
 	// lo.AppInfo(cfg.Id, "Warming up for", cfg.WarmupTime)
 	// time.Sleep(cfg.WarmupTime)
 
