@@ -7,7 +7,11 @@ from math import log
 import multiprocessing as mp
 import uuid
 
-from nbformat import write
+from collections import defaultdict
+import re
+
+from sys import argv
+
 
 mp.set_start_method("fork")
 
@@ -73,12 +77,16 @@ def write_request(log):
     log.write(stdout.decode() + str(elapsed.microseconds) + "\n\n")
 
 
+read_log_files = mp.Queue(maxsize=10)
+write_log_files = mp.Queue(maxsize=10)
 
 def client_worker(sema):
     global requests_completed
 
     read_log = open(f"r{os.getpid()}.log", "w")
     write_log = open(f"w{os.getpid()}.log", "w")
+    read_log_files.put(f"r{os.getpid()}.log")
+    write_log_files.put(f"w{os.getpid()}.log")
 
 
     while True:
@@ -139,6 +147,50 @@ def client(rate, n, workers):
 if __name__ == "__main__":
     spawn_nodes(5)
     sleep(2)
-    client(400, 4000, 4)
+    client(int(argv[1]), 4400, 5)
     for p in nodes:
         p.terminate()
+
+    read_rgx = re.compile(r"^([0-9]+)$", flags=re.MULTILINE)
+    read_rgx2 = re.compile(r"(\[.*\])", flags=re.MULTILINE)
+
+    read_times = []
+    read_arrs = []
+    while read_log_files.qsize() != 0:
+        rf = read_log_files.get()
+        with open(rf, "r") as f:
+            lines = f.read()
+            read_times.extend(read_rgx.findall(lines))
+            read_arrs.extend(read_rgx2.findall(lines))
+
+
+    read_times = [int(r) for r in read_times]
+
+    read_checker = defaultdict(lambda: set())
+
+    for r in read_arrs:
+        r = r.strip()
+        sz = len(r[1:-1].split())
+        read_checker[sz].add(r)
+
+    print("Mean read latency:", sum(read_times)/len(read_times), "us", "\tRead Throughput:", len(read_arrs) / sum(read_times) * 1e+6, "req/s")
+    
+    for v in read_checker.values():
+        assert len(v) == 1
+
+    print("Reads verified for correctness")
+
+
+    write_times = []
+    good_writes = []
+    write_rgx = re.compile(r"^(Write by .*)$", flags=re.MULTILINE)
+    while write_log_files.qsize() != 0:
+        rf = write_log_files.get()
+        with open(rf, "r") as f:
+            lines = f.read()
+            write_times.extend(read_rgx.findall(lines))
+            good_writes.extend(write_rgx.findall(lines))
+
+    write_times = [int(w) for w in write_times]
+    
+    print("Mean write latency:", sum(write_times)/len(write_times), "us", "\tWrite Throughput:", len(good_writes) / sum(write_times) * 1e+6, "req/s")
