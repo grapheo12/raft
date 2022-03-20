@@ -1,4 +1,5 @@
 import os
+import signal
 import subprocess
 from time import sleep
 from datetime import datetime, timedelta
@@ -143,13 +144,48 @@ def client(rate, n, workers):
         p.join()
 
 
+def fault_control_worker(max_faults):
+    global nodes
+    faulty_nodes = set()
+
+    while True:
+        sleep_time = .5 + random.uniform(0, 0.5)
+        sleep(sleep_time)
+
+        task = random.randint(0, 1)
+        if task == 0 and len(faulty_nodes) < max_faults:  # Stop a node
+            i = random.randint(0, len(nodes) - 1)
+            while i in faulty_nodes:
+                i = random.randint(0, len(nodes) - 1)
+
+            nodes[i].send_signal(signal.SIGSTOP)
+            faulty_nodes.add(i)
+        elif task == 1 and len(faulty_nodes) > 0:
+            i = random.randint(0, len(nodes) - 1)
+            while i not in faulty_nodes:
+                i = random.randint(0, len(nodes) - 1)
+            
+            nodes[i].send_signal(signal.SIGCONT)
+            faulty_nodes.remove(i)
+
+
+def fault_control():
+    max_fault = (len(nodes) - 1) // 2
+    p = mp.Process(target=fault_control_worker, args=(max_fault,))
+    p.start()
+
+    return p
+
 
 if __name__ == "__main__":
     spawn_nodes(5)
     sleep(2)
+    faulter = fault_control()
     client(int(argv[1]), 4400, 5)
+    
     for p in nodes:
         p.terminate()
+    faulter.terminate()
 
     read_rgx = re.compile(r"^([0-9]+)$", flags=re.MULTILINE)
     read_rgx2 = re.compile(r"(\[.*\])", flags=re.MULTILINE)

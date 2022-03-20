@@ -1,14 +1,15 @@
 package main
 
 import (
-	"fmt"
 	"math/rand"
 	"os"
+	"os/signal"
 	"raft/internal/config"
 	"raft/internal/lo"
 	"raft/pkg/network"
 	"raft/pkg/raft"
 	"raft/pkg/server"
+	"syscall"
 	"time"
 )
 
@@ -17,8 +18,8 @@ func main() {
 	lo.LOG.AddSink(os.Stdout, cfg.LogLevel)
 
 	rand.Seed(int64(cfg.Id))
-	// lo.AppInfo(cfg.Id, "Warming up for", cfg.WarmupTime)
-	// time.Sleep(cfg.WarmupTime)
+	lo.AppInfo(cfg.Id, "Warming up for", cfg.WarmupTime)
+	time.Sleep(cfg.WarmupTime)
 
 	net := &network.Network{}
 	err := net.Init(":"+cfg.NetworkPort, cfg.Id)
@@ -41,7 +42,6 @@ func main() {
 
 	rNode := &raft.RaftNode{}
 	rNode.Init(net, 100, 200, 300, 400, cfg.EMinT, cfg.EMaxT, cfg.EMinT)
-	fmt.Println(cfg)
 	time.Sleep(100 * time.Millisecond)
 
 	peers := make(map[int32]string)
@@ -54,6 +54,8 @@ func main() {
 
 	sigs := make(chan os.Signal, 1)
 	done := make(chan bool, 1)
+
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
 		<-sigs

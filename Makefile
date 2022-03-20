@@ -24,15 +24,6 @@ protocompile:
 perf_test: bin/raft bin/client tests/perf_tests/perf_test.py tests/perf_tests/config.ini
 	@echo "Read : Write = 3 : 1"
 	
-	
-	@echo "Rate: 50 req/s" 
-	python3 tests/perf_tests/perf_test.py 50
-	@rm *.log
-
-	@echo "Rate: 100 req/s" 
-	python3 tests/perf_tests/perf_test.py 100
-	@rm *.log
-
 	@echo "Rate: 200 req/s" 
 	python3 tests/perf_tests/perf_test.py 200
 	@rm *.log

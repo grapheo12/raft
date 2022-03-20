@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
-	"raft/internal/lo"
 	"raft/pkg/raft"
 	"sync"
 	"time"
@@ -59,7 +58,6 @@ func (s *Server) raftWrite(w http.ResponseWriter, r *http.Request) {
 
 	if s.RNode.State != raft.LEADER {
 		leader := s.Peers[s.RNode.CurrLeaderId]
-		lo.AppInfo(s.nId, "LEADER: ", leader, s.Peers, s.RNode.CurrLeaderId)
 		w.WriteHeader(http.StatusBadGateway)
 		w.Header().Set("Content-type", "application/json")
 		w.Write([]byte(`{

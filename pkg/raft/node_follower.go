@@ -3,7 +3,6 @@ package raft
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math/rand"
 	"raft/internal/lo"
 	"raft/pkg/rpc"
@@ -25,7 +24,6 @@ func (n *RaftNode) resetAsFollower(ct int32) error {
 func (n *RaftNode) Handle_Follower(ctx context.Context) {
 	tv := n.electionMinTimeout.Milliseconds()
 	tv += rand.Int63n(n.electionMaxTimeout.Milliseconds() - n.electionMinTimeout.Milliseconds())
-	fmt.Println("Say you wont let go", tv)
 	timeout, cancel := context.WithTimeout(ctx, time.Duration(tv*int64(time.Millisecond)))
 	defer cancel()
 
