@@ -17,4 +17,4 @@ We have implemented a Key Value Store on top of the Raft Cluster. To use it :
 
 ## Run Tests
 We implemented some unit tests and some performance tests
-`$ go test raft/test`
+`$ go test raft/tests/unit_tests`
