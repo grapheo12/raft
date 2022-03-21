@@ -168,6 +168,10 @@ func (c *cluster) checkSingleLeader() (int, int) {
 	return -1, -1
 }
 
+func (c *cluster) AddNode(node_id int) {
+	return
+}
+
 func (c *cluster) RemoveNode(node_id int) {
 	c.T.Logf("Node_id received is %d", node_id)
 
@@ -180,5 +184,12 @@ func (c *cluster) RemoveNode(node_id int) {
 	delete(c.nets, int32(node_id))
 	delete(c.servers, int32(node_id))
 	delete(c.ports, int32(node_id))
-	c.num_nodes--
+}
+
+func (c *cluster) checkNoLeader() {
+	for i, rNode := range c.rNodes {
+		if rNode.State == raft.LEADER {
+			c.T.Errorf("Node with ID %d claims to be leader!", i)
+		}
+	}
 }

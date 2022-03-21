@@ -33,9 +33,11 @@ func TestElectionSimple(t *testing.T) {
 	c.checkSingleLeader()
 }
 
-func TestElectionWithDisconnect(t *testing.T) {
+// Test that on leader's disconnection a new leader is eventually elected
+func TestElectionWithLeaderDisconnect(t *testing.T) {
 	lo.LOG.AddSink(os.Stdout, 25)
 	c := createCluster(t, 3)
+	defer leaktest.Check(t)()
 	defer c.shutdown()
 
 	leaderId, leaderTerm := c.checkSingleLeader()
@@ -53,4 +55,20 @@ func TestElectionWithDisconnect(t *testing.T) {
 	if newLeaderTerm <= leaderTerm {
 		c.T.Errorf("Term of new Leader should be >= orginal term. Instead got %d and %d", newLeaderTerm, leaderTerm)
 	}
+}
+
+// Test that leader disconnect , followed by another disconnect leads to no quorum being formed
+func TestElectionWithLeaderAndOtherDisconnect(t *testing.T) {
+	c := createCluster(t, 3)
+	defer leaktest.Check(t)()
+	defer c.shutdown()
+
+	leaderId, _ := c.checkSingleLeader()
+	c.RemoveNode(leaderId)
+	other_node_id := (leaderId + 1) % 3
+	c.RemoveNode(other_node_id)
+
+	// NO quorum can be attained
+	time.Sleep(400 * time.Millisecond)
+	c.checkNoLeader()
 }
