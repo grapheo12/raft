@@ -1,3 +1,6 @@
+/**
+ Source file for handling the candidate state
+**/
 package raft
 
 import (
@@ -16,7 +19,7 @@ func (n *RaftNode) resetAsCandidate(ct int32) error {
 		n.State = FOLLOWER
 		n.VotedFor = -1
 		n.voteReqSent = false
-		lo.RaftInfo(n.nId, "Higher term found : [", ct, "], state [FOLLOWER -> FOLLOWER]")
+		lo.RaftInfo(n.nId, "Higher term found : [", ct, "], state [CANDIDATE -> FOLLOWER]")
 		return errors.New("Protyahar")
 	}
 	return nil
@@ -30,6 +33,7 @@ func (n *RaftNode) isMajority() bool {
 
 func (n *RaftNode) Handle_Candidate(ctx context.Context) {
 	if !n.voteReqSent {
+		// Prepare to send a VoteRequest
 		n.Term++
 		n.VotesReceived = make(map[int32]bool)
 		n.VotesReceived[n.nId] = true
@@ -46,7 +50,7 @@ func (n *RaftNode) Handle_Candidate(ctx context.Context) {
 		lo.RaftInfo(n.nId, "Broadcasted VoteRequest")
 		n.voteReqSent = true
 	}
-
+	// Generate a timeout value in range [n.electionMinTimeout, n.electionMaxTimeout]
 	tv := n.electionMinTimeout.Milliseconds()
 	tv += rand.Int63n(n.electionMaxTimeout.Milliseconds() - n.electionMinTimeout.Milliseconds())
 	timeout, cancel := context.WithTimeout(ctx, time.Duration(tv*int64(time.Millisecond)))
@@ -61,6 +65,7 @@ func (n *RaftNode) Handle_Candidate(ctx context.Context) {
 		n.voteReqSent = false
 		lo.RaftInfo(n.nId, "Restarting vote")
 	case data := <-n.voteRequestCh:
+		// Received vote request from another node
 		voteReq := rpc.VoteRequestMsg{}
 		err := voteReq.Unmarshal(data.Data)
 		if err != nil {
@@ -75,6 +80,7 @@ func (n *RaftNode) Handle_Candidate(ctx context.Context) {
 		}
 		// Ignore
 	case data := <-n.voteResponseCh:
+		// Received a vote
 		voteResp := rpc.VoteResponseMsg{}
 		err := voteResp.Unmarshal(data.Data)
 		if err != nil {
@@ -92,6 +98,7 @@ func (n *RaftNode) Handle_Candidate(ctx context.Context) {
 			n.VotesReceived[voteResp.VoterId] = true
 		}
 
+		// Check if quorum has been achieved
 		if n.isMajority() {
 			n.State = LEADER
 			n.voteReqSent = false
@@ -105,6 +112,7 @@ func (n *RaftNode) Handle_Candidate(ctx context.Context) {
 
 			lo.RaftInfo(n.nId, "Achieved quorum, [CANDIDATE -> LEADER]")
 		}
+
 	case data := <-n.logRequestCh:
 		logReq := rpc.LogRequestMsg{}
 		err := logReq.Unmarshal(data.Data)
