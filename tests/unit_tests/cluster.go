@@ -136,6 +136,7 @@ func createCluster(t *testing.T, num_nodes int) *cluster {
 // Shoutsdown a particular server
 func (c *cluster) shutdown() {
 	for i := range c.ports {
+		c.rNodes[i].StopNode()
 		c.nets[i].StopServer()
 		c.servers[i].Shutdown()
 	}
@@ -171,6 +172,7 @@ func (c *cluster) RemoveNode(node_id int) {
 	c.T.Logf("Node_id received is %d", node_id)
 
 	lo.RaftInfo(int32(node_id), "Stopped the node")
+
 	c.rNodes[int32(node_id)].StopNode()
 	c.nets[int32(node_id)].StopServer()
 	c.servers[int32(node_id)].Shutdown()

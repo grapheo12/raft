@@ -7,12 +7,14 @@ import (
 	"raft/internal/lo"
 	"raft/pkg/rpc"
 	"reflect"
+	"time"
 )
 
 func (n *Network) acceptor(lr net.Listener, ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			lo.NetError(n.NodeId, "Trying to close lr!!!")
 			lr.Close()
 			return
 		default:
@@ -53,7 +55,7 @@ func (n *Network) receiver(ctx context.Context) {
 			return
 		default:
 			n.inConnLck.RLock()
-			cases := make([]reflect.SelectCase, len(n.InConn)+1)
+			cases := make([]reflect.SelectCase, len(n.InConn)+2)
 			i := 0
 			for _, v := range n.InConn {
 				cases[i] = reflect.SelectCase{
@@ -66,6 +68,11 @@ func (n *Network) receiver(ctx context.Context) {
 				Dir:  reflect.SelectRecv,
 				Chan: reflect.ValueOf(n.newConnSignal),
 			}
+			new_ctx, _ := context.WithTimeout(ctx, 2*time.Second)
+			cases[i+1] = reflect.SelectCase{
+				Dir:  reflect.SelectRecv,
+				Chan: reflect.ValueOf(new_ctx.Done()),
+			}
 			n.inConnLck.RUnlock()
 
 			chosen, val, recvOk := reflect.Select(cases)
@@ -73,7 +80,7 @@ func (n *Network) receiver(ctx context.Context) {
 				continue
 			}
 
-			if chosen == i {
+			if chosen == i || chosen == (i+1) {
 				continue
 			}
 
@@ -114,17 +121,17 @@ func (n *Network) reader(conn net.Conn, sender chan rpc.NodeMessage, ctx context
 }
 
 func (n *Network) Server(lr net.Listener, ctx context.Context) {
-	ctxAcc, endAcc := context.WithCancel(ctx)
+	ctxAcc, _ := context.WithCancel(ctx)
 	go n.acceptor(lr, ctxAcc)
 
-	ctxRecv, endRecv := context.WithCancel(ctx)
+	ctxRecv, _ := context.WithCancel(ctx)
 	go n.receiver(ctxRecv)
 
 	for {
 		select {
 		case <-ctx.Done():
-			endAcc()
-			endRecv()
+			// endAcc()
+			// endRecv()
 			lo.NetWarn(n.NodeId, "Server exiting")
 			return
 		case connData := <-n.newConn:

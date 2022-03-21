@@ -124,23 +124,29 @@ func (r *RaftNode) Init(
 //  Repeatedly poll the state of the node and handle accordingly
 func (r *RaftNode) NodeMain(ctx context.Context) {
 	for {
-		c, _ := context.WithCancel(ctx)
-		if r.State == FOLLOWER {
-			lo.RaftInfo(r.nId, "Found state FOLLOWER")
-			r.Handle_Follower(c)
-		} else if r.State == CANDIDATE {
-			lo.RaftInfo(r.nId, "Found state CANDIDATE")
-			r.Handle_Candidate(c)
-		} else {
-			lo.RaftInfo(r.nId, "Found state LEADER")
-			if !r.heartbeatStarted {
-				cc, ccCancel := context.WithCancel(c)
-				r.heartbeatCancel = ccCancel
-				go r.heartbeat(cc)
-				r.heartbeatStarted = true
-				lo.RaftInfo(r.nId, "hearbeat started")
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			c, _ := context.WithCancel(ctx)
+
+			if r.State == FOLLOWER {
+				lo.RaftInfo(r.nId, "Found state FOLLOWER")
+				r.Handle_Follower(c)
+			} else if r.State == CANDIDATE {
+				lo.RaftInfo(r.nId, "Found state CANDIDATE")
+				r.Handle_Candidate(c)
+			} else {
+				lo.RaftInfo(r.nId, "Found state LEADER")
+				if !r.heartbeatStarted {
+					cc, ccCancel := context.WithCancel(c)
+					r.heartbeatCancel = ccCancel
+					go r.heartbeat(cc)
+					r.heartbeatStarted = true
+					lo.RaftInfo(r.nId, "hearbeat started")
+				}
+				r.Handle_Leader(c)
 			}
-			r.Handle_Leader(c)
 		}
 	}
 }

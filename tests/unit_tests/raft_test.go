@@ -1,6 +1,8 @@
 package tests
 
 import (
+	"os"
+	"raft/internal/lo"
 	"testing"
 	"time"
 
@@ -32,7 +34,7 @@ func TestElectionSimple(t *testing.T) {
 }
 
 func TestElectionWithDisconnect(t *testing.T) {
-	// lo.LOG.AddSink(os.Stdout, 25)
+	lo.LOG.AddSink(os.Stdout, 25)
 	c := createCluster(t, 3)
 	defer c.shutdown()
 
@@ -51,14 +53,4 @@ func TestElectionWithDisconnect(t *testing.T) {
 	if newLeaderTerm <= leaderTerm {
 		c.T.Errorf("Term of new Leader should be >= orginal term. Instead got %d and %d", newLeaderTerm, leaderTerm)
 	}
-}
-
-func TestInit(t *testing.T) {
-	defer leaktest.Check(t)()
-
-	go func() {
-		for {
-			time.Sleep(time.Second)
-		}
-	}()
 }
