@@ -14,8 +14,8 @@ func (n *Network) acceptor(lr net.Listener, ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			lo.NetError(n.NodeId, "Trying to close lr!!!")
-			lr.Close()
+			// lo.NetError(n.NodeId, "Trying to close lr!!!")
+			// lr.Close()
 			return
 		default:
 			lo.NetInfo(n.NodeId, "Ready to Accept")
@@ -121,17 +121,18 @@ func (n *Network) reader(conn net.Conn, sender chan rpc.NodeMessage, ctx context
 }
 
 func (n *Network) Server(lr net.Listener, ctx context.Context) {
-	ctxAcc, _ := context.WithCancel(ctx)
+	ctxAcc, endAcc := context.WithCancel(ctx)
 	go n.acceptor(lr, ctxAcc)
 
-	ctxRecv, _ := context.WithCancel(ctx)
+	ctxRecv, endRecv := context.WithCancel(ctx)
 	go n.receiver(ctxRecv)
 
 	for {
 		select {
 		case <-ctx.Done():
-			// endAcc()
-			// endRecv()
+			endAcc()
+			endRecv()
+			lr.Close()
 			lo.NetWarn(n.NodeId, "Server exiting")
 			return
 		case connData := <-n.newConn:
