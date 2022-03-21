@@ -1,5 +1,11 @@
 # Raft Implementation 
+
 ## Raft Implementation done for Distributed Systems course
+
+Authors:
+1. Shubham Mishra (18CS10066)
+2. Rounak Patra (18CS30048)
+3. Archisman Pathak (18CS30050)
 
 ## Build Instructions 
 
@@ -51,4 +57,4 @@ To view the documentation for any package, run:
 
 For example, to view the doc for the network package, run:
 
-`go doc pkg/network`
+`$ go doc pkg/network`
