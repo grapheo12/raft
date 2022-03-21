@@ -1,3 +1,4 @@
+// Implements the Replicated Log for the Raft Nodes
 package raft
 
 import (

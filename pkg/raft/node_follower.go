@@ -1,3 +1,9 @@
+/**
+	Handles the follower state of the Raft Node.
+	Handles LogRequest from leaders, VoteRequests from candidtes
+	and keeps a timer to check for election timeouts.
+	On election timeout changes to CANDIDATE state and flow passes to Handle_Candidate
+**/
 package raft
 
 import (
@@ -32,6 +38,7 @@ func (n *RaftNode) Handle_Follower(ctx context.Context) {
 		return
 	case <-timeout.Done():
 		n.State = CANDIDATE
+		n.voteReqSent = false
 		lo.RaftInfo(n.nId, "Timeout occured, state [FOLLOWER -> CANDIDATE]")
 		return
 	case data := <-n.voteRequestCh:

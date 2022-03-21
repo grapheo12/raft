@@ -1,3 +1,16 @@
+/**
+ Defines the Raft Node stuct which contains
+ the necessary variables for storing the state
+ of the node as well the channels for communication
+
+ The three distinct states in which a node can exist are handled separately in their corresponding source file are:
+ * Leader    :  node_leader.go
+ * Canditate :  node_candidate.go
+ * Follower  :  node_follower.go
+
+ Once a RaftNode is initialized , the control flows to NodeMain() where is repeatedly polls its state and handles requests accrodingly
+
+**/
 package raft
 
 import (
@@ -108,6 +121,7 @@ func (r *RaftNode) Init(
 	go r.NodeMain(ctx)
 }
 
+//  Repeatedly poll the state of the node and handle accordingly
 func (r *RaftNode) NodeMain(ctx context.Context) {
 	for {
 		c, _ := context.WithCancel(ctx)
@@ -131,6 +145,7 @@ func (r *RaftNode) NodeMain(ctx context.Context) {
 	}
 }
 
+// Append entries to the log of the Node
 func (n *RaftNode) AppendEntries(prefixLen int32, leaderCommitLen int32, suffix []*rpc.LogEntry) {
 	if len(suffix) > 0 && n.Log.Length > int(prefixLen) {
 		index := n.Log.Length

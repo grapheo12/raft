@@ -87,6 +87,8 @@ func (n *RaftNode) Handle_Leader(ctx context.Context) {
 	case <-ctx.Done():
 		return
 	case data := <-n.ClientIn:
+		//  Message received from client , append to Log
+		// and replicate to followers
 		n.Log.Append(&rpc.LogEntry{
 			Msg:  data,
 			Term: n.Term,
@@ -102,6 +104,7 @@ func (n *RaftNode) Handle_Leader(ctx context.Context) {
 		}
 
 	case data := <-n.voteRequestCh:
+		// ignore vote request
 		voteReq := rpc.VoteRequestMsg{}
 		err := voteReq.Unmarshal(data.Data)
 		if err != nil {
@@ -117,6 +120,7 @@ func (n *RaftNode) Handle_Leader(ctx context.Context) {
 
 	// Ignore
 	case data := <-n.voteResponseCh:
+		//  ignore any vote response received
 		voteResp := rpc.VoteResponseMsg{}
 		err := voteResp.Unmarshal(data.Data)
 		if err != nil {
@@ -131,6 +135,7 @@ func (n *RaftNode) Handle_Leader(ctx context.Context) {
 		}
 	// Ignore
 	case data := <-n.logRequestCh:
+		//  ignore any logRequest received from other nodes
 		logReq := rpc.LogRequestMsg{}
 		err := logReq.Unmarshal(data.Data)
 		if err != nil {
@@ -154,6 +159,7 @@ func (n *RaftNode) Handle_Leader(ctx context.Context) {
 
 		lo.RaftInfo(n.nId, "Received LogResponse from", logResp.FollowerId)
 
+		// Check the term in the logResponse and if reqd. become follower
 		if errr := n.resetAsLeader(logResp.FollowerTerm); errr != nil {
 			return
 		}
@@ -161,10 +167,15 @@ func (n *RaftNode) Handle_Leader(ctx context.Context) {
 		if (logResp.FollowerTerm == n.Term) && n.State == LEADER {
 			if logResp.LogCommitSuccess &&
 				(logResp.LogCommitAck >= int32(n.AckedLen[logResp.FollowerId])) {
+				//  follower succesfully received log
+				// check if a quorum has been attained , thus comitting,
+				// and deliver to application
 				n.SentLen[logResp.FollowerId] = logResp.LogCommitAck
 				n.AckedLen[logResp.FollowerId] = logResp.LogCommitAck
 				n.commitEntries()
 			} else if n.SentLen[logResp.FollowerId] > 0 {
+				// Retry sending the log to the follower
+				// with a bigger array of entry
 				n.SentLen[logResp.FollowerId]--
 				n.replicateLog(logResp.FollowerId)
 			}
